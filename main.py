@@ -3,16 +3,12 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
-import asyncio
-from telegram import Bot
+import requests
+import threading
 
 class BotApp(App):
     def build(self):
         self.layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
-
-        self.layout.add_widget(Label(text="نام ربات:"))
-        self.name_input = TextInput(multiline=False)
-        self.layout.add_widget(self.name_input)
 
         self.layout.add_widget(Label(text="توکن ربات:"))
         self.token_input = TextInput(multiline=False, password=True)
@@ -44,15 +40,19 @@ class BotApp(App):
             self.status.text = "همه فیلدها رو پر کن!"
             return
 
+        threading.Thread(target=self._send_api, args=(token, chat_id, text), daemon=True).start()
+
+    def _send_api(self, token, chat_id, text):
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": text}
         try:
-            asyncio.run(self._send(token, chat_id, text))
-            self.status.text = "پیام ارسال شد!"
+            r = requests.post(url, data=payload, timeout=10)
+            if r.ok:
+                self.status.text = "پیام ارسال شد!"
+            else:
+                self.status.text = f"خطا: {r.status_code}"
         except Exception as e:
             self.status.text = f"خطا: {e}"
-
-    async def _send(self, token, chat_id, text):
-        bot = Bot(token=token)
-        await bot.send_message(chat_id=int(chat_id), text=text)
 
 if __name__ == "__main__":
     BotApp().run()
